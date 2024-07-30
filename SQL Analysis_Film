@@ -1,0 +1,79 @@
+## Film Base Analysis of 
+
+ # 1. Total count of movies in each category 
+select category.name, 
+count(rental.rental_id) as rental_count, 
+sum(payment.amount) as total_rent, 
+count(distinct film.film_id) as total_films,
+dense_rank() over (order by sum(payment.amount) desc) as rank_category
+from rental
+left join inventory
+on rental.inventory_id = inventory.inventory_id
+left join film 
+on inventory.film_id = film.film_id
+left join film_category 
+on  inventory.film_id = film_category.film_id
+left join category
+on film_category.category_id = category.category_id
+left join payment
+on payment.rental_id = rental.rental_id
+group by category.name
+.......................................................................................................................
+
+# 2. Top 5 Genera 
+with category_table as (
+SELECT 
+c.category_id,
+c.name as category,
+count(DISTINCT f.film_id) as film_count,
+sum(p.amount) as revenue,
+dense_rank() over (order by sum(p.amount) desc) as _rank
+FROM
+category c
+JOIN film_category fc ON
+c.category_id=fc.category_id
+JOIN film f
+ON fc.film_id=f.film_id
+JOIN inventory i
+ON f.film_id=i.film_id
+JOIN rental r
+ON i.inventory_id=r.inventory_id
+JOIN payment p
+ON r.rental_id=p.rental_id
+GROUP BY category, c.category_id)
+select * from category_table
+where _rank <= 5
+.......................................................................................................................
+
+# 3. Top 5 Movies in each Genera
+WITH filmstatus AS (
+    SELECT 
+    c.category_id,
+	c.name AS category,
+	f.title as film_title,
+	COUNT(r.rental_id) AS rented_count,
+	SUM(p.amount) AS revenue,
+	ROW_NUMBER() OVER (PARTITION BY c.category_id ORDER BY COUNT(r.rental_id) DESC, SUM(p.amount) DESC) AS film_rank
+    FROM
+category c
+JOIN film_category fc ON
+c.category_id=fc.category_id
+JOIN film f
+ON fc.film_id=f.film_id
+JOIN inventory i
+ON f.film_id=i.film_id
+JOIN rental r
+ON i.inventory_id=r.inventory_id
+JOIN payment p
+ON r.rental_id=p.rental_id
+GROUP BY c.category_id, c.name, f.film_id, f.title
+)
+SELECT 
+category_id,
+    category,
+    film_title,
+    rented_count,
+    revenue,
+    film_rank
+FROM filmstatus
+WHERE film_rank <= 5
